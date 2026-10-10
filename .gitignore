@@ -1,1 +1,4 @@
 venv/*
+library.db
+
+*/__pycache__/*

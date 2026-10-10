@@ -1,17 +1,24 @@
+
+from datetime import date
+from dataclasses import dataclass
+
+@dataclass
 class Book:
     id: str
     title: str
     author: str
     isbn: str | None
 
+@dataclass
 class Member:
     name: str
     id: str
 
-class Loan: 
+@dataclass
+class Loan:
     id: str
     member_id: str
     book_id: str
-    date_borrowed: Date
-    date_returned: Date | None
+    date_borrowed: date
+    date_returned: date | None
 
