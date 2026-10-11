@@ -1,6 +1,7 @@
 import sqlite3
 from ..models import Book, Member
 
+#TODO: rename
 class LibraryDatabaseService:
     def __init__(self, db_path: str = "library.db") -> None:
         self.db_path = db_path
@@ -47,6 +48,7 @@ class LibraryDatabaseService:
                 UNIQUE(book_id)
             );
         """)
+        connection.commit()
         # Only close if it's a file-based database
         if self.db_path != ":memory:":
             connection.close()
@@ -63,15 +65,14 @@ class LibraryDatabaseService:
 
     def add_book(self, title, author, isbn) -> Book:
         connection = self._connect()
-        connection.execute(
+        cursor = connection.execute(
             "INSERT INTO books (title, author, isbn) VALUES (?, ?, ?)",
             (title, author, isbn)
         )
-        cursor = connection.execute("SELECT * FROM books WHERE title = ? AND author = ?", (title, author))
-        row = cursor.fetchone()
+        connection.commit()
         if self.db_path != ":memory:":
             connection.close()
-        return Book(id=row["id"], title=row["title"], author=row["author"], isbn=isbn)
+        return Book(id=cursor.lastrowid, title=title, author=author, isbn=isbn)
 
     def add_member(self, name: str) -> Member:
         connection = self._connect()
@@ -79,6 +80,15 @@ class LibraryDatabaseService:
             "INSERT INTO members (name) VALUES (?)",
             (name,)
         )
+        connection.commit()
         if self.db_path != ":memory:":
             connection.close()
         return Member(id=cursor.lastrowid, name=name)
+
+    def list_books(self) -> list[Book]:
+        connection = self._connect()
+        cursor = connection.execute("SELECT * FROM books")
+        rows = cursor.fetchall()
+        if self.db_path != ":memory:":
+            connection.close()
+        return [Book(id=row["id"], title=row["title"], author=row["author"], isbn=row["isbn"]) for row in rows]

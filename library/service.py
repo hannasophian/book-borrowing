@@ -15,6 +15,7 @@ class LibraryDatabase(Protocol):
     # def update_book(self, book: Book) -> None: ...
 
     def add_member(self, name: str) -> Member : ...
+    def list_books(self) -> list[Book]: ...
     # def get_member(self, member_id: int) -> Member | None: ...
 
     # def add_loan(self, loan: Loan) -> None: ...
@@ -31,8 +32,8 @@ class LibraryService:
     # def return_book(self, member_id: str, book_id: str):
     #     pass
     
-    # def list_books(self):
-    #     pass
+    def list_books(self):
+        return self.database.list_books()
     
     def add_book(self, title: str, author: str, isbn: str) -> Book:
         return self.database.add_book(title, author, isbn)
