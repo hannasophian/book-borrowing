@@ -1,5 +1,7 @@
 import sqlite3
-from ..models import Book, Member
+from datetime import date
+from ..exceptions import BookAlreadyBorrowedError
+from ..models import Book, Loan, Member
 
 #TODO: rename
 class LibraryDatabaseService:
@@ -44,8 +46,7 @@ class LibraryDatabaseService:
                 book_id INTEGER NOT NULL REFERENCES books(id),
                 member_id INTEGER NOT NULL REFERENCES members(id),
                 date_borrowed TEXT NOT NULL,
-                date_returned TEXT,
-                UNIQUE(book_id)
+                date_returned TEXT
             );
         """)
         connection.commit()
@@ -92,3 +93,52 @@ class LibraryDatabaseService:
         if self.db_path != ":memory:":
             connection.close()
         return [Book(id=row["id"], title=row["title"], author=row["author"], isbn=row["isbn"]) for row in rows]
+
+    def get_book(self, book_id: str) -> Book | None:
+        connection = self._connect()
+        row = connection.execute("SELECT * FROM books WHERE id = ?", (book_id,)).fetchone()
+        if self.db_path != ":memory:":
+            connection.close()
+        if row is None:
+            return None
+        return Book(id=row["id"], title=row["title"], author=row["author"], isbn=row["isbn"])
+
+    def get_member(self, member_id: str) -> Member | None:
+        connection = self._connect()
+        row = connection.execute("SELECT * FROM members WHERE id = ?", (member_id,)).fetchone()
+        if self.db_path != ":memory:":
+            connection.close()
+        if row is None:
+            return None
+        return Member(id=row["id"], name=row["name"])
+
+    def add_loan(self, member_id: str, book_id: str, date_borrowed: date) -> Loan:
+        connection = self._connect()
+        try:
+            # BEGIN IMMEDIATE takes the write lock before the check, so no other
+            # connection can insert a loan for this book between the SELECT and INSERT
+            connection.execute("BEGIN IMMEDIATE")
+            active_loan = connection.execute(
+                "SELECT 1 FROM loans WHERE book_id = ? AND date_returned IS NULL",
+                (book_id,)
+            ).fetchone()
+            if active_loan is not None:
+                raise BookAlreadyBorrowedError(f"Book {book_id} is already borrowed")
+            cursor = connection.execute(
+                "INSERT INTO loans (book_id, member_id, date_borrowed) VALUES (?, ?, ?)",
+                (book_id, member_id, date_borrowed.isoformat())
+            )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            if self.db_path != ":memory:":
+                connection.close()
+        return Loan(
+            id=cursor.lastrowid,
+            member_id=member_id,
+            book_id=book_id,
+            date_borrowed=date_borrowed,
+            date_returned=None,
+        )
